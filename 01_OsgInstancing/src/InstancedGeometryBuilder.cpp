@@ -39,8 +39,127 @@
 #include "ComputeInstanceBoundingBoxCallback.h"
 #include "ComputeTextureBoundingBoxCallback.h"
 
+
 namespace osgExample
 {
+
+    void MyRigTransformHardware::operator()(osgAnimation::RigGeometry& geom)
+    {
+        if (_needInit)
+            if (!init(geom))
+                return;
+        computeMatrixPaletteUniform(geom.getMatrixFromSkeletonToGeometry(), geom.getInvMatrixFromSkeletonToGeometry());
+    }
+
+    bool MyRigTransformHardware::init(osgAnimation::RigGeometry& geom)
+    {
+        osg::Vec3Array* pos = dynamic_cast<osg::Vec3Array*>(geom.getVertexArray());
+        if (!pos) {
+            osg::notify(osg::WARN) << "RigTransformHardware no vertex array in the geometry " << geom.getName() << std::endl;
+            return false;
+        }
+
+        if (!geom.getSkeleton()) {
+            osg::notify(osg::WARN) << "RigTransformHardware no skeleting set in geometry " << geom.getName() << std::endl;
+            return false;
+        }
+
+        osgAnimation::BoneMapVisitor mapVisitor;
+        geom.getSkeleton()->accept(mapVisitor);
+        osgAnimation::BoneMap bm = mapVisitor.getBoneMap();
+
+        if (!createPalette(pos->size(),bm, geom.getVertexInfluenceSet().getVertexToBoneList()))
+            return false;
+
+        const int attribIndex = 11;
+        const int nbAttribs = getNumVertexAttrib();
+
+
+#if 0
+        // use a global program for all avatar
+        if (!program.valid()) {
+            program = new osg::Program;
+            program->setName("HardwareSkinning");
+            if (!_shader.valid())
+                _shader = osg::Shader::readShaderFile(osg::Shader::VERTEX,"shaders/skinning.vert");
+
+            if (!_shader.valid()) {
+                osg::notify(osg::WARN) << "RigTransformHardware can't load VertexShader" << std::endl;
+                return false;
+            }
+
+            // replace max matrix by the value from uniform
+            {
+                std::string str = _shader->getShaderSource();
+                std::string toreplace = std::string("MAX_MATRIX");
+                std::size_t start = str.find(toreplace);
+                std::stringstream ss;
+                ss << getMatrixPaletteUniform()->getNumElements();
+                str.replace(start, toreplace.size(), ss.str());
+                _shader->setShaderSource(str);
+                osg::notify(osg::INFO) << "Shader " << str << std::endl;
+            }
+
+            program->addShader(_shader.get());
+
+            for (int i = 0; i < nbAttribs; i++)
+            {
+                std::stringstream ss;
+                ss << "boneWeight" << i;
+                program->addBindAttribLocation(ss.str(), attribIndex + i);
+
+                osg::notify(osg::INFO) << "set vertex attrib " << ss.str() << std::endl;
+            }
+        } 
+
+
+        for (int i = 0; i < nbAttribs; i++)
+        {
+            std::stringstream ss;
+            ss << "boneWeight" << i;
+            geom.setVertexAttribArray(attribIndex + i, getVertexAttrib(i));
+        }
+
+        osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
+        ss->addUniform(getMatrixPaletteUniform());
+        ss->addUniform(new osg::Uniform("nbBonesPerVertex", getNumBonesPerVertex()));
+        ss->setAttributeAndModes(program.get());
+        geom.setStateSet(ss.get());
+#endif
+        ss_->addUniform(getMatrixPaletteUniform());
+        ss_->addUniform(new osg::Uniform("nbBonesPerVertex", getNumBonesPerVertex()));
+
+        int ne =  getMatrixPaletteUniform()->getNumElements();
+
+        for (int i = 0; i < nbAttribs; i++)
+        {
+            std::stringstream ss;
+            ss << "boneWeight" << i;
+            p_->addBindAttribLocation(ss.str(), attribIndex + i);
+
+            osg::notify(osg::INFO) << "set vertex attrib " << ss.str() << std::endl;
+        }
+        
+        for (int i = 0; i < nbAttribs; i++)
+        {
+            std::stringstream ss;
+            ss << "boneWeight" << i;
+            geom.setVertexAttribArray(attribIndex + i, getVertexAttrib(i));
+        }
+
+        //geom.setStateSet(ss_.get());
+
+        _needInit = false;
+        return true;
+    }
+
+    void MyRigTransformHardware::setup(osg::StateSet* ss, osg::Program * p  )
+    {
+        ss_ = ss;
+        p_  = p;
+    }
+
+
 
 osg::ref_ptr<osg::Node> InstancedGeometryBuilder::getSoftwareInstancedNode() const
 {
@@ -67,6 +186,8 @@ osg::ref_ptr<osg::Node> InstancedGeometryBuilder::getSoftwareInstancedNode() con
 	program->addShader(fsShader);
 
 	group->getOrCreateStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON);
+    
+
 
 	return group;
 }
@@ -97,13 +218,19 @@ osg::ref_ptr<osg::Node> InstancedGeometryBuilder::getHardwareInstancedNode() con
 	osg::ref_ptr<osg::Program> program = new osg::Program;
 		
 	std::stringstream preprocessorDefinition;
-	preprocessorDefinition << "#define MAX_INSTANCES " << m_maxMatrixUniforms;
+	preprocessorDefinition << "#define MAX_INSTANCES " << m_maxMatrixUniforms << "\n"
+                           << "#define MAX_MATRIX    " << 20; // m_rig_trans->getMatrixPaletteUniform()->getNumElements();
+
 	osg::ref_ptr<osg::Shader> vsShader = readShaderFile("../shader/instancing.vert", preprocessorDefinition.str());
 	osg::ref_ptr<osg::Shader> fsShader = osgDB::readShaderFile("../shader/instancing.frag");
 	program->addShader(vsShader);
 	program->addShader(fsShader);
+    
+    m_rig_trans->setup(instancedNode->getOrCreateStateSet(), program.get() );
 
 	instancedNode->getOrCreateStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON);
+    
+ 
 
 	return instancedNode;
 }

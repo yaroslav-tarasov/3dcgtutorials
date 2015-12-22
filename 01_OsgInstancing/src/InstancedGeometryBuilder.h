@@ -34,21 +34,38 @@
 #include <osg/Geometry>
 #include <osg/Node>
 
+#include <osgAnimation/RigGeometry>
+#include <osgAnimation/RigTransformHardware>
+#include <osgAnimation/BoneMapVisitor>
+
 namespace osgExample
 {
+    struct MyRigTransformHardware : public osgAnimation::RigTransformHardware
+    {
+
+        void operator()(osgAnimation::RigGeometry& geom);
+        bool init(osgAnimation::RigGeometry& geom);
+        void setup(osg::StateSet* ss, osg::Program * p  );
+
+        osg::ref_ptr<osg::StateSet> ss_;
+        osg::ref_ptr<osg::Program>   p_;
+    };
+
 
 class InstancedGeometryBuilder : public osg::Referenced
 {
 public:
-	InstancedGeometryBuilder()
-		:	m_maxMatrixUniforms(16),
-			m_maxTextureResolution(16384u * 4096u)
+	InstancedGeometryBuilder(MyRigTransformHardware * rig_trans)
+		:	m_maxMatrixUniforms   (16)
+		,	m_maxTextureResolution(16384u * 4096u)
+        ,   m_rig_trans           (rig_trans)
 	{
 	}
 	
-	InstancedGeometryBuilder(GLint maxMatrixUniforms)
-		:	m_maxMatrixUniforms(maxMatrixUniforms),
-			m_maxTextureResolution(16384u * 4096u)
+	InstancedGeometryBuilder(GLint maxMatrixUniforms, MyRigTransformHardware * rig_trans)
+		:	m_maxMatrixUniforms   (maxMatrixUniforms)
+		,	m_maxTextureResolution(16384u * 4096u)
+        ,   m_rig_trans           (rig_trans)
 	{
 	}
 	
@@ -67,10 +84,12 @@ private:
 	osg::ref_ptr<osg::Node>   createTextureHardwareInstancedGeode(unsigned int start, unsigned int end) const;
 	osg::ref_ptr<osg::Shader> readShaderFile(const std::string& fileName, const std::string& preprocessorDefinitions) const;
 
-	GLint						m_maxMatrixUniforms;
-	unsigned int				m_maxTextureResolution;
-	osg::ref_ptr<osg::Geometry> m_geometry;
-	std::vector<osg::Matrixd>   m_matrices;
+	GLint						         m_maxMatrixUniforms;
+	unsigned int				         m_maxTextureResolution;
+	osg::ref_ptr<osg::Geometry>          m_geometry;
+	std::vector<osg::Matrixd>            m_matrices;
+    osg::ref_ptr<MyRigTransformHardware> m_rig_trans;
+
 };
 
 }

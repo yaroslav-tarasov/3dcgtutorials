@@ -72,7 +72,14 @@ public:
 				m_switch->setValue(3, true);
 				std::cout << "Switched to hardware instancing with textures" << std::endl;
 				return true;
-				break;
+                break;	
+
+            case osgGA::GUIEventAdapter::KEY_4:
+                m_switch->setSingleChildOn(3);
+                m_switch->setValue(3, true);
+                std::cout << "Switched to hardware instancing with textures" << std::endl;
+                return true;
+                break;
 			case osgGA::GUIEventAdapter::KEY_Plus:
 				m_size *= 2.0f;
 				m_size = std::min(std::max(m_size, 8.0f), 1024.0f);

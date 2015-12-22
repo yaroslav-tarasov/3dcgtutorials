@@ -27,6 +27,7 @@
 #include <iostream>
 #include <osgDB/fstream>
 #include <cmath>
+#include <fstream>
 
 namespace osgExample
 {
@@ -55,8 +56,8 @@ void ASCFileLoader::loadFromFile(const std::string& fileName)
 		m_width = 0u;
 		m_height = 0u;
 		fileStream >> m_width >> m_height;
-
-		// make sure we have a valid file
+        
+        // make sure we have a valid file
 		if (!m_width || !m_height)
 			return;
 
